@@ -14,15 +14,7 @@ class SG(MyNet):
         self.tag = "sg"
 
     def vI_out(self, x_lookup, word_image):
-        # x = self.layer1(word_image)
-        # x = x.view(batch_size, -1)
-        # x = self.layer2(x)
-        # y = self.layer3(x)
         y = self.WI(x_lookup)
-        # T = self.T(y)
-        # T = F.sigmoid(self.TX)
-        # C = 1 - T
-        # z = y * T + x * C
         return [y]
 
     def forward(self, x, y, word_image):
@@ -36,7 +28,7 @@ class SG(MyNet):
         vI = out[0]
 
         pos_score = F.logsigmoid(t.dot(vO, vI))
-        neg_score = F.logsigmoid(t.sum(-t.mv(samples, vI)))
+        neg_score = F.logsigmoid(-t.mv(samples, vI))
 
         loss = -pos_score - t.sum(neg_score)
         loss = t.mean(loss)
