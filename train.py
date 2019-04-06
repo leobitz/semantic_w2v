@@ -108,6 +108,7 @@ total_steps = total_words * n_epoch
 trained_steps = 0
 save_per_epoch = args.save
 logs_per_epoch = args.log
+total_time = 0
 
 word_image = np.random.rand(embed_size)
 while trained_steps <= total_steps:
@@ -131,7 +132,8 @@ while trained_steps <= total_steps:
 
     if trained_steps != 0 and (trained_steps % (total_words // logs_per_epoch)) == 0:
         span = time.time() - start_time
-        left = (span / (trained_steps / (total_words // logs_per_epoch))) * (total_steps - trained_steps)
+        rate = span / (total_words // logs_per_epoch) 
+        left = rate * ((total_steps - trained_steps)//logs_per_epoch)
         s = "Progress: {3:.2f}% Loss {0:.4f} lr: {1:.4f} Time Left: {2:.2f}s"
         print(s.format(np.mean(losses), lr, left, (trained_steps * 100 / total_steps)))
         losses.clear()
