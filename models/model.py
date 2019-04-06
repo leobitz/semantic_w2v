@@ -16,6 +16,7 @@ class MyNet(nn.Module):
         self.vocab_size = vocab_size
         self.neg_samples = neg_samples
         self.neg_dist = neg_dist
+        self.tag = "model"
 
         init_width = 0.5 / embed_size
         x = [
@@ -52,14 +53,14 @@ class MyNet(nn.Module):
         neg_lookup = t.tensor(neg_indexes, dtype=t.long)
         return word_image, x_lookup, y_lookup, neg_lookup
 
-    def get_embedding(self, image, x):
+    def get_embedding(self, x, image):
         word_image = t.tensor(image, dtype=t.double)
         x_lookup = t.tensor(x, dtype=t.long)
-        out = self.vI_out(x_lookup, word_image, len(x))
+        out = self.vI_out(x_lookup, word_image)
         result = [r.detach().numpy() for r in out]
         return result
 
-    def save_embedding(self, embed_dict, file_name, device):
+    def save_embedding(self, embed_dict, file_name):
         file = open(file_name, encoding="utf8", mode="w")
         file.write("{0} {1}\n".format(len(embed_dict), self.embed_size))
         for word in embed_dict.keys():

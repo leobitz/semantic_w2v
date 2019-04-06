@@ -11,8 +11,9 @@ from models.model import MyNet
 class SG(MyNet):
     def __init__(self, embed_size=75, vocab_size=10000, neg_dist=None, neg_samples=5):
         super(SG, self).__init__(embed_size, vocab_size, neg_dist, neg_samples)
+        self.tag = "sg"
 
-    def vI_out(self, x_lookup, word_image, batch_size):
+    def vI_out(self, x_lookup, word_image):
         # x = self.layer1(word_image)
         # x = x.view(batch_size, -1)
         # x = self.layer2(x)
@@ -31,7 +32,7 @@ class SG(MyNet):
 
         vO = self.WO(y_lookup)
         samples = self.WO(neg_lookup)
-        out = self.vI_out(x_lookup, word_image, 1)
+        out = self.vI_out(x_lookup, word_image)
         vI = out[0]
 
         pos_score = F.logsigmoid(t.dot(vO, vI))
