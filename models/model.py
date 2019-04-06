@@ -51,7 +51,7 @@ class MyNet(nn.Module):
         )
         neg_indexes = self.neg_dist[neg_indexes]
         neg_lookup = t.tensor(neg_indexes, dtype=t.long)
-        return word_image, x_lookup, y_lookup, neg_lookup
+        return x_lookup, y_lookup, neg_lookup, word_image
 
     def get_embedding(self, x, image):
         word_image = t.tensor(image, dtype=t.double)

@@ -18,10 +18,9 @@ class SG(MyNet):
         return [y]
 
     def forward(self, x, y, word_image):
-        word_image, x_lookup, y_lookup, neg_lookup = self.prepare_inputs(
+        x_lookup, y_lookup, neg_lookup, word_image = self.prepare_inputs(
             x, y, word_image
         )
-
         vO = self.WO(y_lookup)
         samples = self.WO(neg_lookup)
         out = self.vI_out(x_lookup, word_image)
@@ -31,6 +30,5 @@ class SG(MyNet):
         neg_score = F.logsigmoid(-t.mv(samples, vI))
 
         loss = -pos_score - t.sum(neg_score)
-        loss = t.mean(loss)
         return loss
 
