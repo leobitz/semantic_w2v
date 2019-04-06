@@ -92,58 +92,52 @@ elif args.model == "cnnsg":
     model = CNNSG
 else:
     model = SG
-print(words[:20])
+
 gen = generateSG(list(int_words), skip_window, batch_size)
-for i in range(3):
-    xs, ys = next(gen)
+net = model(neg_dist=ns_unigrams, embed_size=embed_size, vocab_size=len(vocab))
+sgd = optimizers.SGD(net.parameters(), lr=init_lr)
+
+start = time.time()
+losses = []
+grad_time = []
+forward_time = []
+backward_time = []
+step_time = []
+start_time = time.time()
+total_words = len(int_words)
+total_steps = total_words * n_epoch
+trained_steps = 0
+save_per_epoch = args.save
+logs_per_epoch = args.log
+total_time = 0
+
+word_image = np.random.rand(embed_size)
+while trained_steps <= total_steps:
+
+    batch_x, batch_y = next(gen)
     for j in range(skip_window):
-        x, y = xs[j], ys[j]
-        print(int2word[x], '--->', int2word[y])
-    print()
-# net = model(neg_dist=ns_unigrams, embed_size=embed_size, vocab_size=len(vocab))
-# sgd = optimizers.SGD(net.parameters(), lr=init_lr)
+        x, y = batch_x[j], batch_y[j]
+        sgd.zero_grad()
+        out = net.forward(x, y, word_image)
+        out.backward()
+        sgd.step()
 
-# start = time.time()
-# losses = []
-# grad_time = []
-# forward_time = []
-# backward_time = []
-# step_time = []
-# start_time = time.time()
-# total_words = len(int_words)
-# total_steps = total_words * n_epoch
-# trained_steps = 0
-# save_per_epoch = args.save
-# logs_per_epoch = args.log
-# total_time = 0
+    lr = max(0.0001, init_lr * (1.0 - trained_steps / total_steps))
+    for param_group in sgd.param_groups:
+        param_group["lr"] = lr
 
-# word_image = np.random.rand(embed_size)
-# while trained_steps <= total_steps:
+    losses.append(out.detach().numpy())
+    if trained_steps != 0 and trained_steps % (total_words // save_per_epoch) == 0:
+        save_result(save_name + str((trained_steps // total_words)))
+        print("Saving weights. ", (trained_steps / total_words))
 
-#     batch_x, batch_y = next(gen)
-#     for j in range(skip_window):
-#         x, y = batch_x[j], batch_y[j]
-#         sgd.zero_grad()
-#         out = net.forward(x, y, word_image)
-#         out.backward()
-#         sgd.step()
+    if trained_steps != 0 and (trained_steps % (total_words // logs_per_epoch)) == 0:
+        span = time.time() - start_time
+        rate = span / (total_words // logs_per_epoch) 
+        left = rate * ((total_steps - trained_steps)//logs_per_epoch)
+        s = "Progress: {3:.2f}% Loss {0:.4f} lr: {1:.4f} Time Left: {2:.2f}s"
+        print(s.format(np.mean(losses), lr, left, (trained_steps * 100 / total_steps)))
+        losses.clear()
+        start_time = time.time()
 
-#     lr = max(0.0001, init_lr * (1.0 - trained_steps / total_steps))
-#     for param_group in sgd.param_groups:
-#         param_group["lr"] = lr
-
-#     losses.append(out.detach().numpy())
-#     if trained_steps != 0 and trained_steps % (total_words // save_per_epoch) == 0:
-#         save_result(save_name + str((trained_steps // total_words)))
-#         print("Saving weights. ", (trained_steps / total_words))
-
-#     if trained_steps != 0 and (trained_steps % (total_words // logs_per_epoch)) == 0:
-#         span = time.time() - start_time
-#         rate = span / (total_words // logs_per_epoch) 
-#         left = rate * ((total_steps - trained_steps)//logs_per_epoch)
-#         s = "Progress: {3:.2f}% Loss {0:.4f} lr: {1:.4f} Time Left: {2:.2f}s"
-#         print(s.format(np.mean(losses), lr, left, (trained_steps * 100 / total_steps)))
-#         losses.clear()
-#         start_time = time.time()
-
-#     trained_steps += 1
+    trained_steps += 1
