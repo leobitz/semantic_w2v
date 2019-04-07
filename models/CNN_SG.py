@@ -10,41 +10,44 @@ from models.model import MyNet
 
 class CNNSG(MyNet):
     def __init__(
-        self, embed_size=75, vocab_size=10000, neg_dist=None, neg_samples=5
+        self,
+        embed_size=75,
+        vocab_size=10000,
+        neg_dist=None,
+        neg_samples=5,
+        get_image=None,
     ):
-        super(CNNSG, self).__init__(embed_size, vocab_size, neg_dist, neg_samples)
-
-    def vI_out(self, x_lookup, word_image, batch_size):
-        # x = self.layer1(word_image)
-        # x = x.view(batch_size, -1)
-        # x = self.layer2(x)
-        # y = self.layer3(x)
-        y = self.WI(x_lookup)
-        # T = self.T(y)
-        # T = F.sigmoid(self.TX)
-        # C = 1 - T
-        # z = y * T + x * C
-        return [y]
-
-    def forward(self, word_image, x, y):
-        word_image, x_lookup, y_lookup, neg_lookup = self.prepare_inputs(
-            word_image, x, y
+        super(CNNSG, self).__init__(
+            embed_size, vocab_size, neg_dist, neg_samples, get_image
         )
 
+    def vI_out(self, x):
+        x_lookup = t.tensor(x, dtype=t.long)
+        vI = self.WI(x_lookup)
+        image = self.get_image(x)
+        image = self.cnn(image)
+        image = image.view(-1)
+        image = self.fc1(image)
+
+        y = self.alpha * vI + self.beta * image
+        return [y, imag, vI]
+
+    def forward(self, x, y):
+        x_lookup, y_lookup, neg_lookup = self.prepare_inputs(x, y)
+        image = self.get_image(x)
+        image = self.cnn(image)
+        image = image.view(-1)
+        image = self.fc1(image)
+
         vO = self.WO(y_lookup)
+        vI = self.WI(x_lookup)
         samples = self.WO(neg_lookup)
-        out = self.vI_out(x_lookup, word_image, len(y))
-        vI = out[0]
 
-        pos_z = t.mul(vO, vI).squeeze()
-        vI = vI.unsqueeze(2).view(len(x), self.embed_size, 1)
-        neg_z = -t.bmm(samples, vI).squeeze()
+        vI = self.alpha * vI + self.beta * image
 
-        pos_score = t.sum(pos_z, dim=1)
-        pos_score = F.logsigmoid(pos_score)
-        neg_score = F.logsigmoid(neg_z)
+        pos_score = F.logsigmoid(t.dot(vO, vI))
+        neg_score = F.logsigmoid(-t.mv(samples, vI))
 
         loss = -pos_score - t.sum(neg_score)
-        loss = t.mean(loss)
         return loss
 
