@@ -34,14 +34,14 @@ class MyNet(nn.Module):
         self.WO = nn.Embedding(vocab_size, embed_size, sparse=True).double()
         self.WO.weight.data.uniform_(-init_width, init_width)
 
-        n_filters = 10
+        n_filters = 12
 
         self.cnn = nn.Sequential(
             nn.Conv2d(1, n_filters, kernel_size=5, stride=1, padding=2).double(),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=3)
         )
-        self.fc1 = nn.Linear(640, embed_size).double()
+        self.fc1 = nn.Linear(768, embed_size).double()
         self.fc2 = nn.Linear(embed_size, embed_size).double()
         self.T = nn.Parameter(t.rand(embed_size), requires_grad=True).double()
         self.alpha = nn.Parameter(t.tensor([1.0]), requires_grad=True).double()

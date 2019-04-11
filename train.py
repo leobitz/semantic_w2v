@@ -11,6 +11,7 @@ from models.CNN_SG import CNNSG
 from models.preSG import PRESG
 from models.sg import SG
 from models.CNN import CNN
+from models.CNN_SG_out import CNNSG_OUT
 import os
 
 
@@ -144,6 +145,9 @@ elif args.model == "cnnsg":
     get_image = get_cnn_image
 elif args.model == "cnn":
     model = CNN
+    get_image = get_cnn_image
+elif args.model == "cnn_sg_out":
+    model = CNNSG_OUT
     get_image = get_cnn_image
 else:
     model = SG
