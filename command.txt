@@ -1,1 +1,1 @@
-python train.py -e 5 -s 100 -w 5 -m sg -f sg -d data/news.txt -v 1 -l 10
+python train.py -e 5 -s 100 -w 1 -m cnn_sg_out -f cnn_sg_out -d data/news.txt -v 1 -l 10

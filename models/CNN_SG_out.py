@@ -33,7 +33,7 @@ class CNNSG_OUT(MyNet):
         return [vI]
 
     def forward(self, x, y):
-        x_lookup, y_lookup, neg_lookup = self.prepare_inputs(x, y)
+        x_lookup, y_lookup, neg_lookup, neg_samples = self.prepare_inputs(x, y)
         image = self.get_image(y)
         image = self.cnn(image)
         image = image.view(-1)
@@ -43,7 +43,18 @@ class CNNSG_OUT(MyNet):
         vI = self.WI(x_lookup)
         samples = self.WO(neg_lookup)
 
+        neg_images = []
+        for i in range(5):
+            neg_image =  self.get_image(neg_samples[i])
+            neg_image = self.cnn(neg_image)
+            neg_image = neg_image.view(-1)
+            neg_image = self.fc1(neg_image)
+            neg_images.append(neg_image)
+        neg_images = t.stack(neg_images)
+            
+        # print(samples.shape, neg_images.shape)
         # vI = self.alpha * vI + self.beta * image
+        samples = samples + self.T * neg_images
         vO = vO + self.T * image
 
         pos_score = F.logsigmoid(t.dot(vO, vI))

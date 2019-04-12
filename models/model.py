@@ -55,7 +55,7 @@ class MyNet(nn.Module):
         neg_indexes = np.random.randint(0, len(self.neg_dist), size=self.neg_samples)
         neg_indexes = self.neg_dist[neg_indexes]
         neg_lookup = t.tensor(neg_indexes, dtype=t.long)
-        return x_lookup, y_lookup, neg_lookup
+        return x_lookup, y_lookup, neg_lookup, neg_indexes
 
     def get_embedding(self, x):
         # image = self.get_image(x)
