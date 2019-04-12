@@ -68,23 +68,18 @@ def ns_sample(word2freq, word2int, int2word, rate):
 def min_count_threshold(words, min_count=5):
     new_words = []
     word2freq = {}
-    unkown_word = "*###*"
-    new_words.append(unkown_word)
     for word in words:
         if word not in word2freq:
             word2freq[word] = 0
         word2freq[word] += 1
 
     freq = {}
-    freq[unkown_word] = 0
     for word in words:
         if word2freq[word] >= min_count:
             new_words.append(word)
             if word not in freq:
                 freq[word] = 0
             freq[word] += 1
-        else:
-            freq[unkown_word] += 1
 
     return new_words, freq
 

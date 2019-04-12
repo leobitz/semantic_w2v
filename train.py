@@ -9,6 +9,7 @@ from torch.autograd import Variable
 import argparse
 from models.CNN_SG import CNNSG
 from models.preSG import PRESG
+from models.preSG_out import PRESG_OUT
 from models.sg import SG
 from models.CNN import CNN
 from models.CNN_SG_out import CNNSG_OUT
@@ -116,6 +117,7 @@ words = read_file(data_file)
 words, word2freq = min_count_threshold(words)
 # words = subsampling(words, 1e-3)
 vocab, word2int, int2word = build_vocab(words)
+print(int2word[0])
 char2int, int2char, char2tup, tup2char, n_consonant, n_vowel = build_charset()
 ns_unigrams = np.array(ns_sample(word2freq, word2int, int2word, 0.75), dtype=np.int32)
 print("Words to train: ", len(words))
@@ -139,6 +141,9 @@ if args.model == "sg":
     get_image = None
 elif args.model == "pre":
     model = PRESG
+    get_image = get_pretrained_image
+elif args.model == "pre_out":
+    model = PRESG_OUT
     get_image = get_pretrained_image
 elif args.model == "cnnsg":
     model = CNNSG
