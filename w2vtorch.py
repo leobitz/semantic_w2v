@@ -6,6 +6,7 @@ import numpy as np
 import time
 from data_handle import *
 from torch.autograd import Variable
+import os
 
 
 class Net(nn.Module):
@@ -61,7 +62,8 @@ class Net(nn.Module):
 		input_x = self.layer1(word_image).view(batch_size, -1)
 		seqI = self.fc1(input_x)
 		vI = self.WI(x_lookup)
-		vI = self.alpha * vI + self.beta * seqI
+		# vI = self.alpha * vI + self.beta * seqI
+		# vI = ((self.alpha)/(self.alpha + self.beta)) * vI + ((self.beta)/(self.alpha + self.beta)) * seqI
 		return vI
 
 	def forward(self, word_image, x, y):
@@ -140,7 +142,7 @@ def generateSG(data, skip_window, batch_size,
 		yield batch_input, batch_vec_input, batch_output
 
 
-words = read_file("data/news.txt")
+words = read_file("data/news.txt")#[:2000]
 words, word2freq = min_count_threshold(words)
 # words = subsampling(words, 1e-3)
 vocab, word2int, int2word = build_vocab(words)
@@ -153,7 +155,7 @@ int_words = np.array(int_words, dtype=np.int32)
 n_chars = 11 + 2
 n_epoch = 10
 batch_size = 5
-skip_window = 3
+skip_window = 1
 init_lr = .05
 gen = generateSG(list(int_words), skip_window, batch_size,
 				 int2word, char2tup, n_chars, n_consonant, n_vowel)
@@ -173,6 +175,13 @@ step_time = []
 start_time = time.time()
 steps_per_epoch = (len(int_words) * skip_window) // batch_size
 current_batch = 0
+vec_params = []
+folder = "results/{0}_{1}".format(skip_window, init_lr)
+try:
+	os.mkdir(folder)
+except:
+	pass
+open(folder + "/params.txt", mode='w')
 for i in range(steps_per_epoch * n_epoch):
 	sgd.zero_grad()
 	x1, x2, y = next(gen)
@@ -192,10 +201,11 @@ for i in range(steps_per_epoch * n_epoch):
 		print(s.format(np.mean(losses), lr, span))
 		start_time = time.time()
 
-		#del word2int['<unk>']
 		vocab = list(word2int.keys())
 		embed_dict = {}
 		embed_dict_2 = {}
+		embed_dict_3 = {}
+		alpha, beta = net.alpha.detach().numpy()[0], net.beta.detach().numpy()[0]
 		for i in range(len(vocab)):
 			word = vocab[i]
 			con_mat, vow_mat = word2vec_seperated(
@@ -206,12 +216,13 @@ for i in range(steps_per_epoch * n_epoch):
 			em_row1, em_row2 = net.get_embedding(word_mat, [x_index])
 			embed_dict[word] = em_row1.reshape((-1,))
 			embed_dict_2[word] = em_row2.reshape((-1,))
+			embed_dict_3[word] = alpha * embed_dict[word] + beta * embed_dict_2[word]
 
-
-		net.save_embedding(embed_dict, "results/w2v_cnn{0}.txt".format(current_batch), device)
-		net.save_embedding(embed_dict_2, "results/w2v_cnn_{0}.txt".format(current_batch), device)
+		
+		vec_params.append((alpha, beta))
+		net.save_embedding(embed_dict, folder + "/w2v_cnn1_{0}.txt".format(current_batch), device)
+		net.save_embedding(embed_dict_2, folder + "/w2v_cnn2_{0}.txt".format(current_batch), device)
+		net.save_embedding(embed_dict_3, folder + "/w2v_cnn3_{0}.txt".format(current_batch), device)
 		current_batch += 1
-
-net.save_embedding(embed_dict, "results/w2v_cnn.txt", device)
-net.save_embedding(embed_dict_2, "results/w2v_cnn_.txt", device)
-
+		open(folder + "/params.txt", mode='a').write('{0} {1}\n'.format(alpha, beta))
+		
