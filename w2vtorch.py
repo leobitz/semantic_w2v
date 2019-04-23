@@ -62,7 +62,7 @@ class Net(nn.Module):
 		input_x = self.layer1(word_image).view(batch_size, -1)
 		seqI = self.fc1(input_x)
 		vI = self.WI(x_lookup)
-		# vI = self.alpha * vI + self.beta * seqI
+		vI = self.alpha * vI + self.beta * seqI
 		# vI = ((self.alpha)/(self.alpha + self.beta)) * vI + ((self.beta)/(self.alpha + self.beta)) * seqI
 		return vI
 
