@@ -61,10 +61,10 @@ class Net(nn.Module):
 	def vI_out(self, x_lookup, word_image, batch_size):
 		input_x = self.layer1(word_image).view(batch_size, -1)
 		seqI = self.fc1(input_x)
-		vI = self.WI(x_lookup)
-		vI = self.alpha * vI + self.beta * seqI
+		sgVI = self.WI(x_lookup)
+		# vI = self.alpha * sgVI + self.beta * seqI
 		# vI = ((self.alpha)/(self.alpha + self.beta)) * vI + ((self.beta)/(self.alpha + self.beta)) * seqI
-		return vI
+		return [sgVI, seqI]
 
 	def forward(self, word_image, x, y):
 		word_image, x_lookup, y_lookup, neg_lookup = self.prepare_inputs(word_image,x, y)
@@ -72,10 +72,13 @@ class Net(nn.Module):
 		vO = self.WO(y_lookup)
 		samples = self.WO(neg_lookup)
 
-		vI = self.vI_out(x_lookup, word_image, len(y))
+		sgVI, seqI = self.vI_out(x_lookup, word_image, len(y))
 
-		pos_z = t.mul(vO, vI).squeeze()
-		vI = vI.unsqueeze(2).view(len(x), self.embed_size, 1)
+		pos_z = t.mul(vO, sgVI).squeeze()
+		sgVI = sgVI.unsqueeze(2).view(len(x), self.embed_size, 1)
+		spos_z = t.mul(vO, seqI).squeeze()
+		seqI = seqI.unsqueeze(2).view(len(x), self.embed_size, 1)
+
 		neg_z = -t.bmm(samples, vI).squeeze()
 
 		pos_score = t.sum(pos_z, dim=1)
@@ -99,10 +102,14 @@ class Net(nn.Module):
 	def get_embedding(self, image, x):
 		word_image = t.tensor(image, dtype=t.double, device=self.device)
 		x_lookup = t.tensor(x, dtype=t.long, device=self.device)
-		vI = self.vI_out(x_lookup, word_image, len(x))
-		embeddings = vI.detach().numpy()
-		vI_w = self.WI(x_lookup).detach().numpy()
-		return embeddings, vI_w
+		out = self.vI_out(x_lookup, word_image, len(x))
+		# vI = self.vI_out(x_lookup, word_image, len(x))
+		# embeddings = vI.detach().numpy()
+		# vI_w = self.WI(x_lookup).detach().numpy()
+		out_numpy = []
+		for o in out:
+			out_numpy.append(o.detach().numpy())
+		return out_numpy
 
 	def save_embedding(self, embed_dict, file_name, device):
 		file = open(file_name, encoding='utf8', mode='w')
@@ -142,7 +149,7 @@ def generateSG(data, skip_window, batch_size,
 		yield batch_input, batch_vec_input, batch_output
 
 
-words = read_file("data/news.txt")#[:2000]
+words = read_file("data/clean-am-16.txt")#[:2000]
 words, word2freq = min_count_threshold(words)
 # words = subsampling(words, 1e-3)
 vocab, word2int, int2word = build_vocab(words)
@@ -176,7 +183,7 @@ start_time = time.time()
 steps_per_epoch = (len(int_words) * skip_window) // batch_size
 current_batch = 0
 vec_params = []
-folder = "results/{0}_{1}".format(skip_window, init_lr)
+folder = "results/{0}_{1}_am16".format(skip_window, init_lr)
 try:
 	os.mkdir(folder)
 except:
@@ -202,9 +209,7 @@ for i in range(steps_per_epoch * n_epoch):
 		start_time = time.time()
 
 		vocab = list(word2int.keys())
-		embed_dict = {}
-		embed_dict_2 = {}
-		embed_dict_3 = {}
+		tosave = [{},{},{}]
 		alpha, beta = net.alpha.detach().numpy()[0], net.beta.detach().numpy()[0]
 		for i in range(len(vocab)):
 			word = vocab[i]
@@ -213,16 +218,13 @@ for i in range(steps_per_epoch * n_epoch):
 			word_mat = np.concatenate([con_mat, vow_mat], axis=1).reshape(
 				(1, 1, n_chars, (n_consonant + n_vowel)))
 			x_index = word2int[word]
-			em_row1, em_row2 = net.get_embedding(word_mat, [x_index])
-			embed_dict[word] = em_row1.reshape((-1,))
-			embed_dict_2[word] = em_row2.reshape((-1,))
-			embed_dict_3[word] = alpha * embed_dict[word] + beta * embed_dict_2[word]
+			outs = net.get_embedding(word_mat, [x_index])
+			for vi in range(len(outs)):
+				tosave[vi][word] = outs[vi].reshape((-1,))
 
-		
 		vec_params.append((alpha, beta))
-		net.save_embedding(embed_dict, folder + "/w2v_cnn1_{0}.txt".format(current_batch), device)
-		net.save_embedding(embed_dict_2, folder + "/w2v_cnn2_{0}.txt".format(current_batch), device)
-		net.save_embedding(embed_dict_3, folder + "/w2v_cnn3_{0}.txt".format(current_batch), device)
+		for vi in range(len(tosave)):
+			net.save_embedding(tosave[vi], folder + "/w2v_cnn{1}_{0}.txt".format(current_batch, vi), device)
 		current_batch += 1
 		open(folder + "/params.txt", mode='a').write('{0} {1}\n'.format(alpha, beta))
 		

@@ -131,14 +131,17 @@ def word2vec_seperated(char2tup, word, max_word_len, n_consonant, n_vowel):
     """
     cons = np.zeros((max_word_len, n_consonant), dtype=np.float32)
     vowel = np.zeros((max_word_len, n_vowel), dtype=np.float32)
-    for i in range(len(word)):
-        char = word[i]
+    jj = 0
+    for ii in range(len(word)):
+        char = word[jj]
         t = char2tup[char]
-        cons[i][t[0]] = 1
-        vowel[i][t[1]] = 1
+        cons[ii][t[0]] = 1
+        vowel[ii][t[1]] = 1
+        jj = ii
+    
     con, vow = char2tup[' ']
-    cons[i + 1:, con] = 1
-    vowel[i + 1:, vow] = 1
+    cons[jj + 1:, con] = 1
+    vowel[jj + 1:, vow] = 1
     return cons, vowel
 
 def char_to_vec(char, char2tup, n_consonant, n_vowel):
