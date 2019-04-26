@@ -37,7 +37,7 @@ class Net(nn.Module):
 		self.WO.weight.data.uniform_(-init_width, init_width)
 		self.alpha = nn.Parameter(t.tensor([1.0], requires_grad=True, device=device, dtype=t.float64))
 		self.beta = nn.Parameter(t.tensor([1.0], requires_grad=True, device=device, dtype=t.float64))
-		n_filters = 10
+		n_filters = 12
 		if device == 'cuda':
 			self.fc1 = nn.Linear(n_filters * 4 * 16, embed_size).cuda().double()
 			self.layer1 = nn.Sequential(
@@ -57,14 +57,30 @@ class Net(nn.Module):
 			)
 			self.fc2 = nn.Linear(embed_size, embed_size).double()
 			self.fc3 = nn.Linear(embed_size, embed_size).double()
+			self.T = nn.Parameter((.1 - -.1) * t.rand(embed_size, requires_grad=True, dtype=t.float64)  + -.1)
+			self.b= nn.Parameter(t.tensor([0.001], requires_grad=True, device=device, dtype=t.float64))
+		
+		self.calcVI = self.vI_out_early
 
 	def vI_out(self, x_lookup, word_image, batch_size):
 		input_x = self.layer1(word_image).view(batch_size, -1)
 		seqI = self.fc1(input_x)
 		sgVI = self.WI(x_lookup)
+		g = F.sigmoid(t.mul(self.T, sgVI) + self.b)
+		vI = (1 - g) * sgVI + g * seqI
 		# vI = self.alpha * sgVI + self.beta * seqI
 		# vI = ((self.alpha)/(self.alpha + self.beta)) * vI + ((self.beta)/(self.alpha + self.beta)) * seqI
-		return [sgVI, seqI]
+		return [vI]
+	
+	def vI_out_early(self, x_lookup, word_image, batch_size):
+		# input_x = self.layer1(word_image).view(batch_size, -1)
+		# seqI = self.fc1(input_x)
+		sgVI = self.WI(x_lookup)
+		# g = F.sigmoid(t.mul(self.T, sgVI) + self.b)
+		# vI = (1 - g) * sgVI + g * seqI
+		# vI = self.alpha * sgVI + self.beta * seqI
+		# vI = ((self.alpha)/(self.alpha + self.beta)) * vI + ((self.beta)/(self.alpha + self.beta)) * seqI
+		return [sgVI]
 
 	def forward(self, word_image, x, y):
 		word_image, x_lookup, y_lookup, neg_lookup = self.prepare_inputs(word_image,x, y)
@@ -72,12 +88,11 @@ class Net(nn.Module):
 		vO = self.WO(y_lookup)
 		samples = self.WO(neg_lookup)
 
-		sgVI, seqI = self.vI_out(x_lookup, word_image, len(y))
+		vI = self.calcVI(x_lookup, word_image, len(y))[0]
 
-		pos_z = t.mul(vO, sgVI).squeeze()
-		sgVI = sgVI.unsqueeze(2).view(len(x), self.embed_size, 1)
-		spos_z = t.mul(vO, seqI).squeeze()
-		seqI = seqI.unsqueeze(2).view(len(x), self.embed_size, 1)
+		pos_z = t.mul(vO, vI).squeeze()
+		vI = vI.unsqueeze(2).view(len(x), self.embed_size, 1)
+		
 
 		neg_z = -t.bmm(samples, vI).squeeze()
 
@@ -149,7 +164,7 @@ def generateSG(data, skip_window, batch_size,
 		yield batch_input, batch_vec_input, batch_output
 
 
-words = read_file("data/clean-am-16.txt")#[:2000]
+words = read_file("data/news.txt")[:2000]
 words, word2freq = min_count_threshold(words)
 # words = subsampling(words, 1e-3)
 vocab, word2int, int2word = build_vocab(words)
@@ -162,7 +177,8 @@ int_words = np.array(int_words, dtype=np.int32)
 n_chars = 11 + 2
 n_epoch = 10
 batch_size = 5
-skip_window = 1
+skip_window = 3
+change = 5
 init_lr = .05
 gen = generateSG(list(int_words), skip_window, batch_size,
 				 int2word, char2tup, n_chars, n_consonant, n_vowel)
@@ -183,7 +199,7 @@ start_time = time.time()
 steps_per_epoch = (len(int_words) * skip_window) // batch_size
 current_batch = 0
 vec_params = []
-folder = "results/{0}_{1}_am16".format(skip_window, init_lr)
+folder = "results/{0}_{1}_LM".format(skip_window, init_lr)
 try:
 	os.mkdir(folder)
 except:
@@ -202,7 +218,6 @@ for i in range(steps_per_epoch * n_epoch):
 		param_group['lr'] = lr
 	losses.append(out.detach().cpu().numpy())
 	if i % (steps_per_epoch // 3) == 0 and i > 0:
-		print(net.alpha, net.beta)
 		s = "Loss: {0:.4f} lr: {1:.4f} Time Left: {2:.2f}"
 		span = (time.time() - start_time)
 		print(s.format(np.mean(losses), lr, span))
@@ -228,3 +243,8 @@ for i in range(steps_per_epoch * n_epoch):
 		current_batch += 1
 		open(folder + "/params.txt", mode='a').write('{0} {1}\n'.format(alpha, beta))
 		
+	if i > 0 and (i % steps_per_epoch) == 0 and (i // steps_per_epoch) == change:
+		net.calcVI = net.vI_out
+		print('Change vI out')
+		
+# print(net.T)
